@@ -1,2 +1,2 @@
 # transformers_demo
-built a transformers model from scratch for translation using first principles 
+Built a  vanilla transformers model(Encoder-Decoder) structure for a translation task, to understand the core architecture concept and play around with changes 
