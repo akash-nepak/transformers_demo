@@ -155,7 +155,7 @@ class ResidualConnection(nn.Module):
         self.norm =LayerNormalization()
 
 
-    def forward(self,x,sublayer):
+    def forward(self,x,sublayer): #here sublayer means a module that should be passed 
 
         return x + self.dropout(sublayer(self.norm(x))) #pre normalization for more stability
 
@@ -165,24 +165,95 @@ class ResidualConnection(nn.Module):
 
 class EncoderBlock(nn.Module):
 
-    def __init__(self,self_attention_block : MultiHeadAttentionBlock,feed_forward_block : FeedForwardBlock,droput : float) ->None:
+    def __init__(self,self_attention_block : MultiHeadAttentionBlock,feed_forward_block : FeedForwardBlock,dropout : float) ->None:
 
         super().__init__()
 
         self.self_attention_block = self_attention_block
         self.feed_forward_block = feed_forward_block
-        self.residual_connections = nn.ModuleList([ResidualConnection(droput) for _ in range(2)])
+        self.residual_connections = nn.ModuleList([ResidualConnection(dropout) for _ in range(2)])
         #creats 2 instances of the ResidualConnections as needed for encoder 
 
-    def forward(self,x,src_mask):
+    def forward(self,x,src_mask): # we apply src_mask in encoder to prevent interation of paddings words with input token 
 
         x = self.residual_connections[0](x,lambda x: self.self_attention_block(x,x,x,src_mask) )
-        x = self.residual_connections[1](x,self.feed_forward_block) #passes x as first 
+        x = self.residual_connections[1](x,self.feed_forward_block) #passes x as first as parameter and then passes feed_forward block as a second parameter as sublayer 
 
 
         return x
 
         
+class Encoder(nn.Module): #stacking 'N' encoder layer together
+
+    def __init__(self,layers:nn.ModuleList) -> None: 
+
+        super().__init__()
+        self.layers = layers
+        self.norm = LayerNormalization()
+
+
+    def forward (self ,x ,mask):  #stacking multiple encoder blocks 
+
+        for layer in self.layers: # output of one encoder is input to other 
+            x = layer (x,mask)
+
+        return self.norm(x)
+    
+
+
+class DecoderBlock(nn.Moudule):
+
+    def __init__(self,self_attention_block :MultiHeadAttentionBlock,cross_attention_block:MultiHeadAttentionBlock,feed_forward_block : FeedForwardBlock,dropout : float) -> None:
+
+        super().__init__()
+        self.self_attention_block = self_attention_block
+        self.cross_attention_block = cross_attention_block
+        self.feed_forward_block = feed_forward_block
+        self.residual_connection = nn.ModuleList([ResidualConnection(dropout)for _ in range(3)]) # initialising 3 residual blocks for decoder structure 
+  
+    
+    def forward(self,x , encoder_output,src_mask, tgt_mask  ):
+
+        x = self.residual_connection[0](x,lambda x: self.self_attention_block(x,x,x,tgt_mask))
+        #cross attention block output of self attention from decoder with keys and values comming from the encoder block
+        x = self.residual_connection[1](x, lambda x: self.cross_attention_block(x,encoder_output,encoder_output,src_mask))
+        x = self.residual_connection[2] (x,self.feed_forward_block) 
+
+
+        return x  
+      
+
+class Decoder(nn.Module): # stacking n decoder layers together 
+
+    def __init__(self,layers:nn.ModuleList) -> None:
+
+        super().__init__()
+
+        self.layers = layers
+        self.norm = LayerNormalization()
+
+    def forward(self,x,encoder_output,src_mask,tgt_mask):
+        for layer in self.layers:
+
+            x = layer(x,encoder_output,src_mask,tgt_mask)
+
+        return self.norm(x)
+        
+
+class ProjectionLayer(nn.Module): 
+
+    pass
+
+
+
+
+
+    
+
+
+
+
+
 
 
 
