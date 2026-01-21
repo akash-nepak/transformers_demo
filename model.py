@@ -54,12 +54,12 @@ class LayerNormalization(nn.Module): # mean and var are caluclated for each toke
     def __init__(self,eps : float = 1e-6) -> None:
         super().__init__()
         self.eps = eps
-        self.alpha = nn.Parameter(torch.ones(1))  #making the parameter learnable
+        self.alpha = nn.Parameter(torch.ones(1))  #making the parameter learnable 
         self.bias =  nn.Parameter(torch.ones(1)) # added params
 
     def forward(self,x):
 
-     mean = x.mean(dim = -1,keepdim = True)
+     mean = x.mean(dim = -1,keepdim = True) #shape (Batch,mean,1)
      std = torch.sqrt(x.var(dim = -1, keepdim = True)+ self.eps)
      return self.alpha * ((x-mean)/ (std)) + self.bias
 
@@ -240,9 +240,63 @@ class Decoder(nn.Module): # stacking n decoder layers together
         return self.norm(x)
         
 
-class ProjectionLayer(nn.Module): 
+class ProjectionLayer(nn.Module): #projecting the seq_length,d_model back to words
 
-    pass
+    def __init__(self,d_model :int,vocab_size :int) -> None:
+
+        super().__init__()
+        self.proj = nn.Linear(d_model,vocab_size)
+
+
+    def forward(self,x): #(Batch,seq_len,d_model) --> (Batch,seq_len,vocab_size)
+
+        return torch.log_softmax(self.proj(x),dim = -1)
+
+        
+
+
+class Transformer(nn.Module): #building the entire Module
+
+    def __init__(self,encoder :Encoder,decoder :Decoder,src_embed : InputEmbeddings,tgt_embed :InputEmbeddings,src_pos:PositionalEncoding,tgt_pos : PositionalEncoding,projection_layer : ProjectionLayer):
+        super().__init__()
+        self.encoder = encoder
+        self.decoder =decoder
+        self.src_embed = src_embed
+        self.tgt_embed = tgt_embed
+        self.src_pos = src_pos
+        self.tgt_pos = tgt_pos
+        self.projection_layer = projection_layer
+
+
+    def encode(self,src,src_mask):
+
+        src = self.src_embed(src) #
+        src = self.src_pos(src) # adding positional encoding 
+
+        return self.encoder(src,src_mask)
+   
+    def decode(self, encoder_output,src_mask,tgt,tgt_mask ):
+        tgt = self.tgt_embed(tgt)
+        tgt = self.tgt_pos(tgt)
+        return self.decode(tgt,encoder_output,src_mask,tgt_mask)
+    
+
+    def project(self,x):
+
+        return self.projection_layer(x)
+
+
+
+
+
+
+
+
+    
+
+
+
+
 
 
 
