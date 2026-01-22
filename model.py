@@ -32,8 +32,8 @@ class PositionalEncoding(nn.Module):
         position = torch.arange(0,seq_len, dtype = torch.float).unsqueeze(1) # creating a vectpr to store the pos of the word
         div_term = torch.exp(torch.arange(0,d_model,2).float() * (-math.log(10000)/d_model)) #converting from expo to log for num stability
         
-        pe[:, 0::2] = torch.sin(position * div_term )
-        pe[:,1::2] = torch.cos(position * div_term)
+        pe[:, 0::2] = torch.sin(position * div_term ) #APPLYING sin to even pos
+        pe[:,1::2] = torch.cos(position * div_term) # applying cos to odd positions 
  
 
         pe = pe.unsqueeze(0) #shepe of the matrix (1,seq_lenghth, d_model)
@@ -201,7 +201,7 @@ class Encoder(nn.Module): #stacking 'N' encoder layer together
     
 
 
-class DecoderBlock(nn.Moudule):
+class DecoderBlock(nn.Module):
 
     def __init__(self,self_attention_block :MultiHeadAttentionBlock,cross_attention_block:MultiHeadAttentionBlock,feed_forward_block : FeedForwardBlock,dropout : float) -> None:
 
@@ -216,6 +216,7 @@ class DecoderBlock(nn.Moudule):
 
         x = self.residual_connection[0](x,lambda x: self.self_attention_block(x,x,x,tgt_mask))
         #cross attention block output of self attention from decoder with keys and values comming from the encoder block
+        #only final layer of the encoder layer is fed into cross-attention of  all the layer of Decoder Layer
         x = self.residual_connection[1](x, lambda x: self.cross_attention_block(x,encoder_output,encoder_output,src_mask))
         x = self.residual_connection[2] (x,self.feed_forward_block) 
 
@@ -278,7 +279,7 @@ class Transformer(nn.Module): #building the entire Module
     def decode(self, encoder_output,src_mask,tgt,tgt_mask ):
         tgt = self.tgt_embed(tgt)
         tgt = self.tgt_pos(tgt)
-        return self.decode(tgt,encoder_output,src_mask,tgt_mask)
+        return self.decoder(tgt,encoder_output,src_mask,tgt_mask)
     
 
     def project(self,x):
@@ -286,67 +287,60 @@ class Transformer(nn.Module): #building the entire Module
         return self.projection_layer(x)
 
 
+def build_transformer(src_vocab_size:int,tgt_vocab_size:int,src_seq_len:int,tgt_seq_len :int,d_model :int = 512,N :int = 6,h: int =8,dropout:float = 0.1,d_ff:int = 2048 ) ->Transformer:
+    #Defining Hyperparameters for building a  Transformer, like h ,d_ff, d_model
+    #N =  no of Encoder Decoder block stacked
+
+    src_embed = InputEmbeddings(d_model,src_vocab_size) # embedding vector for entire vocab
+    tgt_embed = InputEmbeddings(d_model,tgt_vocab_size)
+
+    #Massive matrix of random number ,each row correspons to one unique word in the vocabulary
+    #Later, when you pass a sentence like [42, 12, 99] (Token IDs) into src_embed:
+
+    #Lookup: It looks up row 42, row 12, and row 99 in that matrix.
+     
+    src_pos = PositionalEncoding(d_model,src_seq_len,dropout)
+    tgt_pos = PositionalEncoding(d_model,tgt_seq_len,dropout)
+
+    #creatinge encoder block N arryas stacked together 
+    encoder_blocks = []
+
+    for _ in range (N): #create sperate 6 stacked encoder blocks 
+        encoder_self_attention_block = MultiHeadAttentionBlock(d_model,h,dropout)
+        feed_forward_block = FeedForwardBlock(d_model,d_ff,dropout)
+        encoder_block = EncoderBlock(encoder_self_attention_block,feed_forward_block,dropout)
+        encoder_blocks.append(encoder_block)
+
+    # creating the decoder block 
+    decoder_blocks =[]
+
+    for _ in range (N):
+        decoder_self_attention_block = MultiHeadAttentionBlock(d_model,h,dropout)
+        decoder_cross_attention = MultiHeadAttentionBlock(d_model,h,dropout)
+        feed_forward_block = FeedForwardBlock(d_model,d_ff,dropout)
+        decoder_block = DecoderBlock(decoder_self_attention_block,decoder_cross_attention,feed_forward_block,dropout)
+        decoder_blocks.append(decoder_block)
 
 
+    encoder = Encoder(nn.ModuleList(encoder_blocks))  #converts into pytorch-native list 
+    decoder = Decoder(nn.ModuleList(decoder_blocks))
+
+    #projection layer 
+
+    projection_layer = ProjectionLayer(d_model,tgt_vocab_size)
 
 
+    #creating a Transformer 
+    transformer = Transformer(encoder,decoder,src_embed,tgt_embed,src_pos,tgt_pos,projection_layer)
 
 
-    
+    #initialise the parameters, he's or xavier initialization
 
+    for p in transformer.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
 
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-
-
-
-
-
-    
-        
-
-
-
-
-
-
-
-        
-
+    return transformer
 
 
 
@@ -354,5 +348,4 @@ class Transformer(nn.Module): #building the entire Module
 
 
 
-    
 
