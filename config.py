@@ -2,7 +2,7 @@ from pathlib import Path
 
 def get_config(): #can fully change and play around with parameter
     return {
-        "batch_size" : 8,
+        "batch_size" : 20,
         "num_epochs" : 20,
         "lr": 10**-4,
         "seq_len":350,
