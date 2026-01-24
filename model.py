@@ -251,7 +251,7 @@ class ProjectionLayer(nn.Module): #projecting the seq_length,d_model back to wor
 
     def forward(self,x): #(Batch,seq_len,d_model) --> (Batch,seq_len,vocab_size)
 
-        return torch.log_softmax(self.proj(x),dim = -1)
+        return self.proj(x)
 
         
 
