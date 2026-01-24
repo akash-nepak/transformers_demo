@@ -16,9 +16,9 @@ class BilingualDataset(Dataset):
         self.seq_len = seq_len
 
         #creating special Tokens for start and End of sentences  use Method token_to_id 
-        self.sos_token = torch.Tensor([tokenizer_src.token_to_id("[SOS]")],dtype = torch.int64)
-        self.eos_token = torch.Tensor([tokenizer_src.token_to_id("[EOS]")],dtype = torch.int64)
-        self.pad_token = torch.Tensor([tokenizer_src.token_to_id("[PAD]")],dtype = torch.int64)
+        self.sos_token = torch.tensor([tokenizer_src.token_to_id("[SOS]")],dtype = torch.int64)
+        self.eos_token = torch.tensor([tokenizer_src.token_to_id("[EOS]")],dtype = torch.int64)
+        self.pad_token = torch.tensor([tokenizer_src.token_to_id("[PAD]")],dtype = torch.int64)
 
     def __len__(self):
 
@@ -42,13 +42,17 @@ class BilingualDataset(Dataset):
         if enc_num_padding_tokens < 0 or dec_num_padding_tokens <0:
             raise ValueError('sentence chota kar ')
 
+        enc_padding = torch.full((enc_num_padding_tokens,), self.pad_token.item(), dtype=torch.int64)
+        dec_padding = torch.full((dec_num_padding_tokens,), self.pad_token.item(), dtype=torch.int64)
+
 
         encoder_input = torch.cat(
             [
                 self.sos_token,
                 torch.tensor(enc_input_tokens,dtype=torch.int64),
                 self.eos_token,
-                torch.tensor([self.pad_token] * enc_num_padding_tokens,dtype=torch.int64 )
+                #torch.tensor([self.pad_token] * enc_num_padding_tokens,dtype=torch.int64 )
+                enc_padding
 
             ]
         )
@@ -57,8 +61,8 @@ class BilingualDataset(Dataset):
             [
                 self.sos_token,
                 torch.tensor(dec_input_tokens,dtype= torch.int64),
-                torch.tensor([self.pad_token] * dec_num_padding_tokens,dtype=torch.int64)#paddings 
-
+                #torch.tensor([self.pad_token] * dec_num_padding_tokens,dtype=torch.int64)#paddings 
+                dec_padding
             ]
         )
           #Add only eos in the Label  
@@ -66,7 +70,8 @@ class BilingualDataset(Dataset):
             [
                 torch.tensor(dec_input_tokens,dtype= torch.int64),
                 self.eos_token,
-                torch.tensor([self.pad_token] * dec_num_padding_tokens,dtype=torch.int64)
+                #torch.tensor([self.pad_token] * dec_num_padding_tokens,dtype=torch.int64)
+                dec_padding
 
 
 
